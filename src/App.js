@@ -3,16 +3,21 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import logo from './assets/logo2.png';
 import {QrReader} from "react-qr-reader";
 
-
 import { useEffect, useState } from 'react';
 
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import Login from './Login';
 import Vote from './Vote';
+import * as firebase from 'firebase/auth'
+import * as firestore from 'firebase/firestore'
+
+// TODO : Set these
+const ADMIN_UID = "";
+const ADMIN_EMAIL = "";
+const ADMIN_PASS = "";
 
 export default function App(){
-
     const [loading, setLoading] = useState(false);
     const [done, setDone] = useState(false);
 
@@ -22,6 +27,27 @@ export default function App(){
     const [section, setSection] = useState("DEFAULT")
     const [uid, setUid] = useState(null);
 
+    firebase.getAuth().onAuthStateChanged((user)=>{
+      if(user){
+        if(user.uid !== ADMIN_UID) setUid(user.uid);
+        setSection("VOTE");
+      }
+    })
+
+    const validateUID = async (uid)=>{
+      const fs = firestore.getFirestore();
+
+      let doc = await firestore.getDocFromServer(firestore.doc(fs, "users/"+uid));
+      if(!doc.exists()){
+        toast.error("Unknown user!");
+        return;
+      }
+
+      await firebase.signInWithEmailAndPassword(firebase.getAuth(), ADMIN_EMAIL, ADMIN_PASS);
+
+      setUid(uid);
+      setSection("VOTE");
+    }
     
     const onError = (error) => {
       console.log(error)
@@ -36,10 +62,8 @@ export default function App(){
                <QrReader
         onResult={(result, error) => {
           if (!!result) {
-            setUid(result?.text);
-            setSection("VOTE");
+            validateUID(result?.text);
           }
-
           if (!!error) {
             console.info(error);
           }
@@ -76,7 +100,7 @@ export default function App(){
                       </div>)
                     }
                     {
-                      ((section === "VOTE") && (<Vote />) )
+                      ((section === "VOTE") && (<Vote user={uid} />) )
                     }
                     {
                       ((section === "LOGIN") && (<Login />) )
